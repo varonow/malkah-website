@@ -42,8 +42,8 @@ class SiteNav extends HTMLElement {
       link.addEventListener('click', () => mobileNav.classList.remove('open'))
     })
 
-    // Show admin link if logged in
-    if (typeof isLoggedIn === 'function' && isLoggedIn()) {
+    // Show admin link if logged in (checks localStorage directly, no dependency on supabase.js loading order)
+    if (localStorage.getItem('sb-access-token')) {
       const adminItem = this.querySelector('#admin-nav-item')
       const adminMobile = this.querySelector('#admin-nav-mobile')
       if (adminItem) adminItem.style.display = ''
