@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Students — Malkah</title>
+  <meta name="description" content="Tutorial videos for Malkah students." />
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/img/favicon/favicon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/favicon/favicon-192.png" />
+
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="hero-logo-section">
+      <div class="container hero-inner">
+        <img src="/img/logo.png" alt="Malkah" class="hero-logo fade-up" />
+        <p class="hero-tagline fade-up delay-1">Student Tutorials</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="label">Select Your School</p>
+        <h2 class="pillars-heading">Welcome, students!</h2>
+        <p style="color: var(--muted); margin-bottom: 2rem;">
+          Choose your school below to find your tutorial videos.
+        </p>
+
+        <div class="student-cards" id="school-list">
+          <p style="color: var(--muted);">Loading...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    (async () => {
+      const list = document.getElementById('school-list')
+      try {
+        const schools = await getAllSchools()
+        if (schools.length === 0) {
+          list.innerHTML = '<p style="color: var(--muted);">No schools available yet.</p>'
+          return
+        }
+        list.innerHTML = ''
+        schools.forEach(school => {
+          const card = document.createElement('a')
+          card.href = `school.html?school=${school.slug}`
+          card.className = 'student-card'
+          card.innerHTML = `
+            <div class="student-card-icon">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 16L24 8l18 8-18 8z"/>
+                <path d="M14 20v10c0 2 4 4 10 4s10-2 10-4V20"/>
+                <line x1="42" y1="16" x2="42" y2="28"/>
+              </svg>
+            </div>
+            <h3>${school.name}</h3>
+            <p>${school.description || ''}</p>
+          `
+          list.appendChild(card)
+        })
+      } catch (err) {
+        list.innerHTML = `<p style="color: #c0392b;">Error loading schools: ${err.message}</p>`
+      }
+    })()
+  </script>
+</body>
+</html>

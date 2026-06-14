@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial Kit — Malkah</title>
+  <meta name="description" content="Tutorial videos by week." />
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="hero-logo-section">
+      <div class="container hero-inner">
+        <img src="/img/logo.png" alt="Malkah" class="hero-logo fade-up" />
+        <p class="hero-tagline fade-up delay-1" id="page-tagline">Tutorial Kit</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p style="margin-bottom: 1rem;">
+          <a href="#" class="back-link" id="back-link">← Back</a>
+        </p>
+        <p class="label" id="school-label"></p>
+        <h2 class="pillars-heading" id="kit-name"></h2>
+        <p style="color: var(--muted); margin-bottom: 2rem;" id="kit-desc"></p>
+
+        <div class="week-grid" id="week-list">
+          <p style="color: var(--muted);">Loading...</p>
+        </div>
+
+        <div id="error-msg" style="display: none; color: var(--muted);">
+          <p>Kit not found.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    (async () => {
+      const schoolSlug = getQueryParam('school')
+      const kitSlug = getQueryParam('kit')
+      const school = await getSchoolBySlug(schoolSlug)
+      if (!school) { document.getElementById('error-msg').style.display = 'block'; return }
+      const kit = await getKitBySlug(school.id, kitSlug)
+      if (!kit) { document.getElementById('error-msg').style.display = 'block'; return }
+
+      document.getElementById('back-link').href = `school.html?school=${schoolSlug}`
+      document.getElementById('page-tagline').textContent = kit.name
+      document.getElementById('school-label').textContent = school.name
+      document.getElementById('kit-name').textContent = kit.name
+      document.getElementById('kit-desc').textContent = kit.description || ''
+      document.title = `${kit.name} — ${school.name} — Malkah`
+
+      const list = document.getElementById('week-list')
+      const weeks = await getWeeksByKit(kit.id)
+
+      // Get videos for each week to determine if any have content
+      list.innerHTML = ''
+      for (const week of weeks) {
+        const videos = await getVideosByWeek(week.id)
+        const hasVideos = videos.some(v => v.vimeo_id)
+        const card = document.createElement('a')
+        card.href = `week.html?school=${schoolSlug}&kit=${kitSlug}&week=${week.number}`
+        card.className = 'week-card' + (hasVideos ? '' : ' inactive')
+        card.innerHTML = `
+          <div class="week-number">${week.number}</div>
+          <div class="week-info">
+            <h3>${week.title}</h3>
+            <p>${videos.length} ${videos.length === 1 ? 'video' : 'videos'}${!hasVideos ? ' · Coming soon' : ''}</p>
+          </div>
+          <div class="week-arrow">→</div>
+        `
+        list.appendChild(card)
+      }
+    })()
+  </script>
+</body>
+</html>

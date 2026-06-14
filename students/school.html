@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Tutorials — Malkah</title>
+  <meta name="description" content="Choose a tutorial kit." />
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="hero-logo-section">
+      <div class="container hero-inner">
+        <img src="/img/logo.png" alt="Malkah" class="hero-logo fade-up" />
+        <p class="hero-tagline fade-up delay-1" id="page-tagline">Student Tutorials</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p style="margin-bottom: 1rem;">
+          <a href="index.html" class="back-link">← Back to schools</a>
+        </p>
+        <p class="label">Select Your Kit</p>
+        <h2 class="pillars-heading" id="school-name">Welcome!</h2>
+        <p style="color: var(--muted); margin-bottom: 2rem;" id="school-desc"></p>
+
+        <div class="student-cards" id="kit-list">
+          <p style="color: var(--muted);">Loading...</p>
+        </div>
+
+        <div id="error-msg" style="display: none; color: var(--muted);">
+          <p>School not found. <a href="index.html" style="color: var(--plum);">Choose a school</a>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    (async () => {
+      const schoolSlug = getQueryParam('school')
+      const school = await getSchoolBySlug(schoolSlug)
+
+      if (!school) {
+        document.getElementById('school-name').style.display = 'none'
+        document.getElementById('kit-list').style.display = 'none'
+        document.getElementById('error-msg').style.display = 'block'
+        return
+      }
+
+      document.getElementById('page-tagline').textContent = school.name
+      document.getElementById('school-name').textContent = school.name
+      document.getElementById('school-desc').textContent = school.description || ''
+      document.title = `${school.name} — Malkah`
+
+      const list = document.getElementById('kit-list')
+      const kits = await getKitsBySchool(school.id)
+      if (kits.length === 0) {
+        list.innerHTML = '<p style="color: var(--muted);">No kits available yet.</p>'
+        return
+      }
+      list.innerHTML = ''
+      kits.forEach(kit => {
+        const card = document.createElement('a')
+        card.href = `kit.html?school=${schoolSlug}&kit=${kit.slug}`
+        card.className = 'student-card'
+        card.innerHTML = `
+          <div class="student-card-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 12a3 3 0 0 1 3-3h26a3 3 0 0 1 3 3v22a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3z"/>
+              <path d="M8 12v22"/>
+              <path d="M14 17h18"/>
+              <path d="M14 23h18"/>
+              <path d="M14 29h12"/>
+            </svg>
+          </div>
+          <h3>${kit.name}</h3>
+          <p>${kit.description || ''}</p>
+        `
+        list.appendChild(card)
+      })
+    })()
+  </script>
+</body>
+</html>

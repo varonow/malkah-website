@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Kit — Malkah Admin</title>
+  <meta name="robots" content="noindex,nofollow" />
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="section">
+      <div class="container">
+        <p style="margin-bottom: 1rem;">
+          <a href="#" class="back-link" id="back-link">← Back to kits</a>
+        </p>
+
+        <p class="label" id="kit-label"></p>
+        <h1 style="font-size: 2.2rem; font-weight: 700;" id="kit-name"></h1>
+        <p style="color: var(--muted); margin-top: 0.5rem;" id="kit-desc"></p>
+
+        <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);" />
+
+        <div class="admin-section-header">
+          <h2 class="pillars-heading" style="margin-bottom: 0;">Weeks & Videos</h2>
+          <button class="btn btn-primary" id="add-week-btn">+ Add Week</button>
+        </div>
+
+        <div id="weeks-list" style="margin-top: 1.5rem;"></div>
+        <p id="empty-msg" style="color: var(--muted); display: none;">No weeks yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Video Edit Modal -->
+  <div class="modal" id="video-modal">
+    <div class="modal-box">
+      <h2 id="modal-title">Edit Video</h2>
+      <form id="video-form">
+        <input type="hidden" id="video-id" />
+        <div class="form-field">
+          <label for="video-title">Video Title</label>
+          <input type="text" id="video-title" required />
+        </div>
+        <div class="form-field">
+          <label for="video-vimeo">Vimeo ID (just the number, e.g. 1201188450)</label>
+          <input type="text" id="video-vimeo" />
+        </div>
+        <div class="form-field">
+          <label for="video-desc">Description</label>
+          <textarea id="video-desc" rows="3"></textarea>
+        </div>
+        <p id="video-err" style="color: #c0392b; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline-dark" id="cancel-video-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    if (!requireAuth()) { }
+    const kitId = getQueryParam('id')
+    let kit = null
+
+    async function loadKit() {
+      const data = await dbSelect('kits', `select=*&id=eq.${kitId}&limit=1`)
+      kit = data[0]
+      if (!kit) { document.getElementById('kit-name').textContent = 'Kit not found'; return }
+      const sData = await dbSelect('schools', `select=*&id=eq.${kit.school_id}&limit=1`)
+      const school = sData[0]
+      document.getElementById('back-link').href = `school.html?id=${kit.school_id}`
+      document.getElementById('kit-label').textContent = school?.name || ''
+      document.getElementById('kit-name').textContent = kit.name
+      document.getElementById('kit-desc').textContent = kit.description || ''
+      document.title = `${kit.name} — Malkah Admin`
+    }
+
+    const modal = document.getElementById('video-modal')
+    const openVideoModal = (video) => {
+      document.getElementById('video-id').value = video.id
+      document.getElementById('modal-title').textContent = `Edit: ${video.title}`
+      document.getElementById('video-title').value = video.title
+      document.getElementById('video-vimeo').value = video.vimeo_id || ''
+      document.getElementById('video-desc').value = video.description || ''
+      document.getElementById('video-err').style.display = 'none'
+      modal.classList.add('open')
+    }
+    const closeModal = () => modal.classList.remove('open')
+
+    document.getElementById('cancel-video-btn').addEventListener('click', closeModal)
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
+
+    document.getElementById('video-form').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const id = document.getElementById('video-id').value
+      const payload = {
+        title: document.getElementById('video-title').value,
+        vimeo_id: document.getElementById('video-vimeo').value || null,
+        description: document.getElementById('video-desc').value,
+      }
+      try {
+        await dbUpdate('videos', id, payload)
+        closeModal()
+        loadWeeks()
+      } catch (err) {
+        const errEl = document.getElementById('video-err')
+        errEl.textContent = String(err.message || err)
+        errEl.style.display = 'block'
+      }
+    })
+
+    document.getElementById('add-week-btn').addEventListener('click', async () => {
+      const weeks = await getWeeksByKit(kitId)
+      const nextNum = weeks.length === 0 ? 1 : Math.max(...weeks.map(w => w.number)) + 1
+      const title = prompt(`Title for Week ${nextNum}?`, `Week ${nextNum}`)
+      if (!title) return
+      try {
+        const w = await dbInsert('weeks', { kit_id: parseInt(kitId), number: nextNum, title })
+        const weekId = w[0].id
+        await dbInsert('videos', { week_id: weekId, position: 1, title: `${title} Video 1` })
+        await dbInsert('videos', { week_id: weekId, position: 2, title: `${title} Video 2` })
+        loadWeeks()
+      } catch (err) {
+        alert('Error: ' + err.message)
+      }
+    })
+
+    async function loadWeeks() {
+      const list = document.getElementById('weeks-list')
+      list.innerHTML = '<p style="color: var(--muted);">Loading...</p>'
+      const weeks = await getWeeksByKit(kitId)
+      if (weeks.length === 0) {
+        list.innerHTML = ''
+        document.getElementById('empty-msg').style.display = 'block'
+        return
+      }
+      document.getElementById('empty-msg').style.display = 'none'
+      list.innerHTML = ''
+
+      // Get videos for all weeks
+      const videosByWeek = {}
+      await Promise.all(weeks.map(async w => {
+        videosByWeek[w.id] = await getVideosByWeek(w.id)
+      }))
+
+      weeks.forEach(week => {
+        const vids = videosByWeek[week.id] || []
+        const wDiv = document.createElement('div')
+        wDiv.className = 'admin-week-block'
+        wDiv.innerHTML = `
+          <div class="admin-week-head">
+            <div>
+              <span class="week-pill">Week ${week.number}</span>
+              <span class="admin-week-title">${week.title}</span>
+            </div>
+            <button class="btn-icon delete-week-btn" data-id="${week.id}" title="Delete week">×</button>
+          </div>
+          <div class="admin-videos">
+            ${vids.map(v => `
+              <div class="admin-video-row">
+                <div class="admin-video-info">
+                  <strong>${v.title}</strong>
+                  ${v.vimeo_id ? `<span class="video-tag">Vimeo: ${v.vimeo_id}</span>` : '<span class="video-tag pending">No video yet</span>'}
+                  ${v.description ? `<p>${v.description}</p>` : ''}
+                </div>
+                <button class="btn btn-outline-dark edit-video-btn" data-id="${v.id}">Edit</button>
+              </div>
+            `).join('')}
+          </div>
+        `
+        wDiv.querySelector('.delete-week-btn').addEventListener('click', async () => {
+          if (confirm(`Delete Week ${week.number} and its videos?`)) {
+            await dbDelete('weeks', week.id)
+            loadWeeks()
+          }
+        })
+        wDiv.querySelectorAll('.edit-video-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const vid = vids.find(v => v.id == btn.dataset.id)
+            openVideoModal(vid)
+          })
+        })
+        list.appendChild(wDiv)
+      })
+    }
+
+    loadKit().then(loadWeeks)
+  </script>
+</body>
+</html>

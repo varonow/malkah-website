@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week — Malkah</title>
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="section">
+      <div class="container">
+        <p style="margin-bottom: 1rem;">
+          <a href="#" class="back-link" id="back-link">← Back to weeks</a>
+        </p>
+        <p class="label" id="kit-label"></p>
+        <h1 id="week-title" style="font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 1rem;"></h1>
+
+        <div class="video-grid" id="video-list">
+          <p style="color: var(--muted);">Loading...</p>
+        </div>
+
+        <div id="error-msg" style="display: none; color: var(--muted);">
+          <p>Week not found.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    (async () => {
+      const schoolSlug = getQueryParam('school')
+      const kitSlug = getQueryParam('kit')
+      const weekNum = getQueryParam('week')
+
+      const school = await getSchoolBySlug(schoolSlug)
+      if (!school) { document.getElementById('error-msg').style.display = 'block'; return }
+      const kit = await getKitBySlug(school.id, kitSlug)
+      if (!kit) { document.getElementById('error-msg').style.display = 'block'; return }
+      const week = await getWeekByNumber(kit.id, weekNum)
+      if (!week) { document.getElementById('error-msg').style.display = 'block'; return }
+
+      document.getElementById('back-link').href = `kit.html?school=${schoolSlug}&kit=${kitSlug}`
+      document.getElementById('kit-label').textContent = `${school.name} · ${kit.name}`
+      document.getElementById('week-title').textContent = week.title
+      document.title = `${week.title} — ${kit.name} — Malkah`
+
+      const videos = await getVideosByWeek(week.id)
+      const list = document.getElementById('video-list')
+      list.innerHTML = ''
+      videos.forEach((video) => {
+        const card = document.createElement('div')
+        card.className = 'video-card'
+        if (video.vimeo_id) {
+          card.innerHTML = `
+            <div class="video-embed">
+              <iframe src="https://player.vimeo.com/video/${video.vimeo_id}?title=0&byline=0&portrait=0"
+                      frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <div class="video-info">
+              <h3>${video.title}</h3>
+              <p>${video.description || ''}</p>
+              <a href="video.html?school=${schoolSlug}&kit=${kitSlug}&week=${weekNum}&v=${video.position}"
+                 class="btn btn-primary" style="margin-top: 0.75rem;">Open Video</a>
+            </div>
+          `
+        } else {
+          card.innerHTML = `
+            <div class="video-placeholder">
+              <span>Coming soon</span>
+            </div>
+            <div class="video-info">
+              <h3>${video.title}</h3>
+              <p>${video.description || ''}</p>
+            </div>
+          `
+        }
+        list.appendChild(card)
+      })
+    })()
+  </script>
+</body>
+</html>

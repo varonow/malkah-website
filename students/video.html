@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video — Malkah</title>
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="section">
+      <div class="container">
+        <p style="margin-bottom: 1rem;">
+          <a href="#" class="back-link" id="back-link">← Back to week</a>
+        </p>
+        <p class="label" id="week-label"></p>
+        <h1 id="video-title" style="font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; margin-bottom: 1.5rem;"></h1>
+
+        <div class="video-embed" id="video-frame"></div>
+        <p id="video-description" style="color: var(--muted); margin-top: 1.5rem; max-width: 68ch;"></p>
+
+        <div id="error-msg" style="display: none; color: var(--muted);">
+          <p>Video not found.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    (async () => {
+      const schoolSlug = getQueryParam('school')
+      const kitSlug = getQueryParam('kit')
+      const weekNum = getQueryParam('week')
+      const videoPos = getQueryParam('v')
+
+      const school = await getSchoolBySlug(schoolSlug)
+      if (!school) { document.getElementById('error-msg').style.display = 'block'; return }
+      const kit = await getKitBySlug(school.id, kitSlug)
+      if (!kit) { document.getElementById('error-msg').style.display = 'block'; return }
+      const week = await getWeekByNumber(kit.id, weekNum)
+      if (!week) { document.getElementById('error-msg').style.display = 'block'; return }
+      const video = await getVideoByPosition(week.id, videoPos)
+
+      document.getElementById('back-link').href = `week.html?school=${schoolSlug}&kit=${kitSlug}&week=${weekNum}`
+
+      if (!video || !video.vimeo_id) {
+        document.getElementById('video-title').style.display = 'none'
+        document.getElementById('video-frame').style.display = 'none'
+        document.getElementById('error-msg').style.display = 'block'
+        return
+      }
+
+      document.getElementById('week-label').textContent = `${school.name} · ${kit.name} · ${week.title}`
+      document.getElementById('video-title').textContent = video.title
+      document.getElementById('video-description').textContent = video.description || ''
+      document.title = `${video.title} — Malkah`
+
+      document.getElementById('video-frame').innerHTML = `
+        <iframe src="https://player.vimeo.com/video/${video.vimeo_id}?title=0&byline=0&portrait=0"
+                frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+      `
+    })()
+  </script>
+</body>
+</html>

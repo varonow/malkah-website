@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — Malkah</title>
+  <meta name="robots" content="noindex,nofollow" />
+
+  <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
+  <link rel="stylesheet" href="/styles/style.css" />
+</head>
+<body>
+
+  <site-nav></site-nav>
+
+  <main style="margin-top: 68px;">
+    <section class="section">
+      <div class="container">
+
+        <div class="admin-header">
+          <div>
+            <p class="label">Admin</p>
+            <h1 style="font-size: 2.2rem; font-weight: 700;">Tutorial Manager</h1>
+            <p style="color: var(--muted); margin-top: 0.5rem;" id="welcome-msg"></p>
+          </div>
+          <div class="admin-header-actions">
+            <a href="qr.html" class="btn btn-teal">QR Generator</a>
+            <button class="btn btn-outline-dark" id="logout-btn">Sign out</button>
+          </div>
+        </div>
+
+        <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);" />
+
+        <div class="admin-section-header">
+          <h2 class="pillars-heading" style="margin-bottom: 0;">Schools</h2>
+          <button class="btn btn-primary" id="add-school-btn">+ Add School</button>
+        </div>
+
+        <div id="schools-list" class="admin-list" style="margin-top: 1.5rem;"></div>
+        <p id="empty-msg" style="color: var(--muted); display: none;">No schools yet. Click "Add School" to create one.</p>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Add/Edit School Modal -->
+  <div class="modal" id="school-modal">
+    <div class="modal-box">
+      <h2 id="modal-title">Add School</h2>
+      <form id="school-form">
+        <input type="hidden" id="school-id" />
+        <div class="form-field">
+          <label for="school-name">Name</label>
+          <input type="text" id="school-name" required />
+        </div>
+        <div class="form-field">
+          <label for="school-slug">URL Slug (lowercase, no spaces, e.g. "sam")</label>
+          <input type="text" id="school-slug" required pattern="[a-z0-9-]+" />
+        </div>
+        <div class="form-field">
+          <label for="school-desc">Description</label>
+          <textarea id="school-desc" rows="3"></textarea>
+        </div>
+        <p id="school-err" style="color: #c0392b; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline-dark" id="cancel-school-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="save-school-btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+    const user = currentUser()
+    if (user) document.getElementById('welcome-msg').textContent = `Signed in as ${user.email}`
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      logout(); window.location.href = 'login.html'
+    })
+
+    const modal = document.getElementById('school-modal')
+    const openModal = (school = null) => {
+      document.getElementById('modal-title').textContent = school ? 'Edit School' : 'Add School'
+      document.getElementById('school-id').value = school?.id || ''
+      document.getElementById('school-name').value = school?.name || ''
+      document.getElementById('school-slug').value = school?.slug || ''
+      document.getElementById('school-desc').value = school?.description || ''
+      document.getElementById('school-err').style.display = 'none'
+      modal.classList.add('open')
+    }
+    const closeModal = () => modal.classList.remove('open')
+
+    document.getElementById('add-school-btn').addEventListener('click', () => openModal())
+    document.getElementById('cancel-school-btn').addEventListener('click', closeModal)
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
+
+    document.getElementById('school-form').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const id = document.getElementById('school-id').value
+      const payload = {
+        name: document.getElementById('school-name').value,
+        slug: document.getElementById('school-slug').value,
+        description: document.getElementById('school-desc').value,
+      }
+      try {
+        if (id) await dbUpdate('schools', id, payload)
+        else    await dbInsert('schools', payload)
+        closeModal()
+        loadSchools()
+      } catch (err) {
+        const errEl = document.getElementById('school-err')
+        errEl.textContent = String(err.message || err)
+        errEl.style.display = 'block'
+      }
+    })
+
+    async function loadSchools() {
+      const list = document.getElementById('schools-list')
+      list.innerHTML = '<p style="color: var(--muted);">Loading...</p>'
+      try {
+        const schools = await getAllSchools()
+        if (schools.length === 0) {
+          list.innerHTML = ''
+          document.getElementById('empty-msg').style.display = 'block'
+          return
+        }
+        document.getElementById('empty-msg').style.display = 'none'
+        list.innerHTML = ''
+        schools.forEach(school => {
+          const item = document.createElement('div')
+          item.className = 'admin-card'
+          item.innerHTML = `
+            <div class="admin-card-info">
+              <h3>${school.name}</h3>
+              <p>${school.description || ''}</p>
+              <span class="admin-card-slug">/${school.slug}</span>
+            </div>
+            <div class="admin-card-actions">
+              <a href="school.html?id=${school.id}" class="btn btn-primary">Manage Kits</a>
+              <button class="btn btn-outline-dark edit-btn">Edit</button>
+              <button class="btn-icon delete-btn" title="Delete">×</button>
+            </div>
+          `
+          item.querySelector('.edit-btn').addEventListener('click', () => openModal(school))
+          item.querySelector('.delete-btn').addEventListener('click', async () => {
+            if (confirm(`Delete "${school.name}" and ALL its kits, weeks, and videos? This cannot be undone.`)) {
+              await dbDelete('schools', school.id)
+              loadSchools()
+            }
+          })
+          list.appendChild(item)
+        })
+      } catch (err) {
+        list.innerHTML = `<p style="color: #c0392b;">${err.message}</p>`
+      }
+    }
+
+    loadSchools()
+  </script>
+</body>
+</html>

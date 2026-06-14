@@ -1,18 +1,18 @@
 class SiteNav extends HTMLElement {
   connectedCallback() {
     const currentPage = window.location.pathname.split('/').pop() || 'index.html'
-    
+
     this.innerHTML = `
       <header class="site-header">
         <div class="nav-inner">
-          <a href="index.html" class="nav-logo">
-            <img src="img/logo.png" alt="Malkah" />
+          <a href="/index.html" class="nav-logo">
+            <img src="/img/logo.png" alt="Malkah" />
           </a>
           <nav>
             <ul class="nav-links">
-              <li><a href="index.html#mission">About</a></li>
-              <li><a href="products.html">Products</a></li>
-              <li><a href="contact.html">Contact</a></li>
+              <li><a href="/index.html#mission">About</a></li>
+              <li><a href="/products.html">Products</a></li>
+              <li><a href="/contact.html">Contact</a></li>
             </ul>
           </nav>
           <button class="nav-hamburger" id="hamburger" aria-label="Open menu">
@@ -21,9 +21,9 @@ class SiteNav extends HTMLElement {
         </div>
       </header>
       <nav class="nav-mobile" id="mobile-nav">
-        <a href="index.html#mission">About</a>
-        <a href="products.html">Products</a>
-        <a href="contact.html">Contact</a>
+        <a href="/index.html#mission">About</a>
+        <a href="/products.html">Products</a>
+        <a href="/contact.html">Contact</a>
       </nav>
     `
 
@@ -47,14 +47,14 @@ customElements.define('site-nav', SiteNav)
 class SiteFooter extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <p class="footer-copy">© ${new Date().getFullYear()} Malkah. All rights reserved.</p>
-        <a href="index.html" class="footer-logo">
-          <img src="img/logo.png" alt="Malkah" />
-        </a>
-      </div>
-    </footer>
+      <footer class="site-footer">
+        <div class="footer-inner">
+          <p class="footer-copy">© ${new Date().getFullYear()} Malkah. All rights reserved.</p>
+          <a href="/index.html" class="footer-logo">
+            <img src="/img/logo.png" alt="Malkah" />
+          </a>
+        </div>
+      </footer>
     `
   }
 }
