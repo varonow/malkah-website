@@ -9,7 +9,6 @@
   <link rel="icon" type="image/x-icon" href="/img/favicon/favicon.ico" />
   <link rel="stylesheet" href="/styles/style.css" />
 
-  <!-- QR library (vanilla, no dependencies) -->
   <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6/qrcode.min.js"></script>
 </head>
 <body>
@@ -17,41 +16,46 @@
   <site-nav></site-nav>
 
   <main style="margin-top: 68px;">
-    <section class="section">
-      <div class="container">
-        <p style="margin-bottom: 1rem;">
-          <a href="dashboard.html" class="back-link">← Back to dashboard</a>
-        </p>
+    <admin-layout data-page="qr"></admin-layout>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script src="/js/main.js"></script>
+  <script src="/js/supabase.js"></script>
+  <script src="/js/admin-layout.js"></script>
+  <script>
+    customElements.whenDefined('admin-layout').then(() => {
+      setTimeout(initQR, 50)
+    })
+
+    function initQR() {
+      const content = document.querySelector('#admin-content')
+      content.innerHTML = `
         <p class="label">Admin Tools</p>
-        <h1 class="pillars-heading">QR Code Generator</h1>
-        <p style="color: var(--muted); margin-bottom: 2rem;">
+        <h1 style="font-size: 2.2rem; font-weight: 700;">QR Code Generator</h1>
+        <p style="color: var(--muted); margin: 0.5rem 0 2rem;">
           Generate QR codes for any tutorial video, week, kit, or school.
         </p>
 
         <div class="qr-tool">
-
           <div class="qr-controls">
-
             <div class="form-field">
               <label>School</label>
               <select id="school-select"><option value="">Loading...</option></select>
             </div>
-
             <div class="form-field">
               <label>Kit</label>
               <select id="kit-select" disabled><option value="">Select a school first</option></select>
             </div>
-
             <div class="form-field">
               <label>Week</label>
               <select id="week-select" disabled><option value="">Select a kit first</option></select>
             </div>
-
             <div class="form-field">
               <label>Video</label>
               <select id="video-select" disabled><option value="">Select a week first</option></select>
             </div>
-
             <div class="form-field">
               <label>QR Type</label>
               <select id="qr-type">
@@ -61,12 +65,10 @@
                 <option value="school">School (kit list)</option>
               </select>
             </div>
-
             <div class="form-field">
               <label>Site URL</label>
               <input type="text" id="base-url" value="https://malkah.org" />
             </div>
-
             <button class="btn btn-primary" id="generate-btn">Generate QR</button>
           </div>
 
@@ -79,136 +81,121 @@
             <button class="btn btn-teal" id="download-btn" style="margin-top: 1rem; display: none;">Download PNG</button>
           </div>
         </div>
-      </div>
-    </section>
-  </main>
+      `
 
-  <site-footer></site-footer>
+      const schoolSelect = document.getElementById('school-select')
+      const kitSelect    = document.getElementById('kit-select')
+      const weekSelect   = document.getElementById('week-select')
+      const videoSelect  = document.getElementById('video-select')
+      const qrType       = document.getElementById('qr-type')
+      const baseUrlInput = document.getElementById('base-url')
 
-  <script src="/js/main.js"></script>
-  <script src="/js/supabase.js"></script>
-  <script>
-    if (!requireAuth('login.html')) {}
+      ;(async () => {
+        const schools = await getAllSchools()
+        schoolSelect.innerHTML = '<option value="">Select a school</option>'
+        schools.forEach(s => {
+          schoolSelect.innerHTML += `<option value="${s.id}" data-slug="${s.slug}">${s.name}</option>`
+        })
+      })()
 
-    const schoolSelect = document.getElementById('school-select')
-    const kitSelect    = document.getElementById('kit-select')
-    const weekSelect   = document.getElementById('week-select')
-    const videoSelect  = document.getElementById('video-select')
-    const qrType       = document.getElementById('qr-type')
-    const baseUrlInput = document.getElementById('base-url')
-
-    let schoolsData = []
-    let kitsData = []
-    let weeksData = []
-    let videosData = []
-
-    // Load schools on page load
-    ;(async () => {
-      schoolsData = await getAllSchools()
-      schoolSelect.innerHTML = '<option value="">Select a school</option>'
-      schoolsData.forEach(s => {
-        schoolSelect.innerHTML += `<option value="${s.id}" data-slug="${s.slug}">${s.name}</option>`
+      schoolSelect.addEventListener('change', async () => {
+        kitSelect.innerHTML = '<option value="">Select a kit</option>'
+        weekSelect.innerHTML = '<option value="">Select a week</option>'
+        videoSelect.innerHTML = '<option value="">Select a video</option>'
+        kitSelect.disabled = !schoolSelect.value
+        weekSelect.disabled = true
+        videoSelect.disabled = true
+        if (schoolSelect.value) {
+          const kits = await getKitsBySchool(schoolSelect.value)
+          kits.forEach(k => {
+            kitSelect.innerHTML += `<option value="${k.id}" data-slug="${k.slug}">${k.name}</option>`
+          })
+        }
       })
-    })()
 
-    schoolSelect.addEventListener('change', async () => {
-      kitSelect.innerHTML = '<option value="">Select a kit</option>'
-      weekSelect.innerHTML = '<option value="">Select a week</option>'
-      videoSelect.innerHTML = '<option value="">Select a video</option>'
-      kitSelect.disabled = !schoolSelect.value
-      weekSelect.disabled = true
-      videoSelect.disabled = true
-      if (schoolSelect.value) {
-        kitsData = await getKitsBySchool(schoolSelect.value)
-        kitsData.forEach(k => {
-          kitSelect.innerHTML += `<option value="${k.id}" data-slug="${k.slug}">${k.name}</option>`
-        })
-      }
-    })
-
-    kitSelect.addEventListener('change', async () => {
-      weekSelect.innerHTML = '<option value="">Select a week</option>'
-      videoSelect.innerHTML = '<option value="">Select a video</option>'
-      weekSelect.disabled = !kitSelect.value
-      videoSelect.disabled = true
-      if (kitSelect.value) {
-        weeksData = await getWeeksByKit(kitSelect.value)
-        weeksData.forEach(w => {
-          weekSelect.innerHTML += `<option value="${w.id}" data-num="${w.number}">${w.title}</option>`
-        })
-      }
-    })
-
-    weekSelect.addEventListener('change', async () => {
-      videoSelect.innerHTML = '<option value="">Select a video</option>'
-      videoSelect.disabled = !weekSelect.value
-      if (weekSelect.value) {
-        videosData = await getVideosByWeek(weekSelect.value)
-        videosData.forEach(v => {
-          videoSelect.innerHTML += `<option value="${v.position}">${v.title}</option>`
-        })
-      }
-    })
-
-    function getSlug(select) {
-      return select.options[select.selectedIndex]?.dataset?.slug || ''
-    }
-    function getNum(select) {
-      return select.options[select.selectedIndex]?.dataset?.num || ''
-    }
-
-    function buildUrl() {
-      const base = baseUrlInput.value.replace(/\/$/, '')
-      const type = qrType.value
-      const ss = getSlug(schoolSelect)
-      const ks = getSlug(kitSelect)
-      const wn = getNum(weekSelect)
-      const vp = videoSelect.value
-      if (type === 'school' && ss) return `${base}/students/school.html?school=${ss}`
-      if (type === 'kit' && ss && ks) return `${base}/students/kit.html?school=${ss}&kit=${ks}`
-      if (type === 'week' && ss && ks && wn) return `${base}/students/week.html?school=${ss}&kit=${ks}&week=${wn}`
-      if (type === 'video' && ss && ks && wn && vp) return `${base}/students/video.html?school=${ss}&kit=${ks}&week=${wn}&v=${vp}`
-      return null
-    }
-
-    document.getElementById('generate-btn').addEventListener('click', () => {
-      const url = buildUrl()
-      const display = document.getElementById('qr-display')
-      const urlOut = document.getElementById('qr-url')
-      const downloadBtn = document.getElementById('download-btn')
-
-      if (!url) {
-        display.innerHTML = '<p style="color: var(--muted);">Please complete the selections for the QR type chosen.</p>'
-        urlOut.textContent = ''
-        downloadBtn.style.display = 'none'
-        return
-      }
-
-      display.innerHTML = '<div id="qr-canvas-holder"></div>'
-      new QRCode(document.getElementById('qr-canvas-holder'), {
-        text: url,
-        width: 280,
-        height: 280,
-        colorDark: '#6C3569',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M,
+      kitSelect.addEventListener('change', async () => {
+        weekSelect.innerHTML = '<option value="">Select a week</option>'
+        videoSelect.innerHTML = '<option value="">Select a video</option>'
+        weekSelect.disabled = !kitSelect.value
+        videoSelect.disabled = true
+        if (kitSelect.value) {
+          const weeks = await getWeeksByKit(kitSelect.value)
+          weeks.forEach(w => {
+            weekSelect.innerHTML += `<option value="${w.id}" data-num="${w.number}">${w.title}</option>`
+          })
+        }
       })
-      urlOut.textContent = url
-      downloadBtn.style.display = 'inline-block'
-    })
 
-    document.getElementById('download-btn').addEventListener('click', () => {
-      // QRCode.js renders into an <img> or <canvas> — find whichever exists
-      const holder = document.getElementById('qr-canvas-holder')
-      const canvas = holder.querySelector('canvas')
-      const img = holder.querySelector('img')
-      const url = buildUrl() || 'qr'
-      const filename = (url.split('?')[1] || 'qr').replace(/[^a-z0-9]+/gi, '-').slice(0, 50) + '.png'
-      const link = document.createElement('a')
-      link.download = `malkah-qr-${filename}`
-      link.href = canvas ? canvas.toDataURL('image/png') : img.src
-      link.click()
-    })
+      weekSelect.addEventListener('change', async () => {
+        videoSelect.innerHTML = '<option value="">Select a video</option>'
+        videoSelect.disabled = !weekSelect.value
+        if (weekSelect.value) {
+          const videos = await getVideosByWeek(weekSelect.value)
+          videos.forEach(v => {
+            videoSelect.innerHTML += `<option value="${v.position}">${v.title}</option>`
+          })
+        }
+      })
+
+      function getSlug(select) {
+        return select.options[select.selectedIndex]?.dataset?.slug || ''
+      }
+      function getNum(select) {
+        return select.options[select.selectedIndex]?.dataset?.num || ''
+      }
+
+      function buildUrl() {
+        const base = baseUrlInput.value.replace(/\/$/, '')
+        const type = qrType.value
+        const ss = getSlug(schoolSelect)
+        const ks = getSlug(kitSelect)
+        const wn = getNum(weekSelect)
+        const vp = videoSelect.value
+        if (type === 'school' && ss) return `${base}/students/school.html?school=${ss}`
+        if (type === 'kit' && ss && ks) return `${base}/students/kit.html?school=${ss}&kit=${ks}`
+        if (type === 'week' && ss && ks && wn) return `${base}/students/week.html?school=${ss}&kit=${ks}&week=${wn}`
+        if (type === 'video' && ss && ks && wn && vp) return `${base}/students/video.html?school=${ss}&kit=${ks}&week=${wn}&v=${vp}`
+        return null
+      }
+
+      document.getElementById('generate-btn').addEventListener('click', () => {
+        const url = buildUrl()
+        const display = document.getElementById('qr-display')
+        const urlOut = document.getElementById('qr-url')
+        const downloadBtn = document.getElementById('download-btn')
+
+        if (!url) {
+          display.innerHTML = '<p style="color: var(--muted);">Please complete the selections for the QR type chosen.</p>'
+          urlOut.textContent = ''
+          downloadBtn.style.display = 'none'
+          return
+        }
+
+        display.innerHTML = '<div id="qr-canvas-holder"></div>'
+        new QRCode(document.getElementById('qr-canvas-holder'), {
+          text: url,
+          width: 280,
+          height: 280,
+          colorDark: '#6C3569',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        })
+        urlOut.textContent = url
+        downloadBtn.style.display = 'inline-block'
+      })
+
+      document.getElementById('download-btn').addEventListener('click', () => {
+        const holder = document.getElementById('qr-canvas-holder')
+        const canvas = holder.querySelector('canvas')
+        const img = holder.querySelector('img')
+        const url = buildUrl() || 'qr'
+        const filename = (url.split('?')[1] || 'qr').replace(/[^a-z0-9]+/gi, '-').slice(0, 50) + '.png'
+        const link = document.createElement('a')
+        link.download = `malkah-qr-${filename}`
+        link.href = canvas ? canvas.toDataURL('image/png') : img.src
+        link.click()
+      })
+    }
   </script>
 </body>
 </html>

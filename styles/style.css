@@ -965,3 +965,213 @@ site-footer { display: block; }
   justify-content: flex-end;
   margin-top: 1.5rem;
 }
+
+/* ============================================================
+   ADMIN SHELL (sidebar + breadcrumb)
+   ============================================================ */
+
+admin-layout { display: block; }
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 68px - 56px); /* viewport minus nav and footer */
+  background: var(--parchment);
+}
+
+@media (max-width: 768px) {
+  .admin-shell { grid-template-columns: 1fr; }
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+.admin-sidebar {
+  background: var(--plum-dark);
+  color: var(--white);
+  padding: 2rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar-head {
+  padding: 0 1.5rem 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 1rem;
+}
+
+.admin-sidebar-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.admin-sidebar-user {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.65);
+  word-break: break-all;
+}
+
+.admin-sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.75rem;
+  overflow-y: auto;
+}
+
+.admin-sidebar-link {
+  display: block;
+  padding: 0.6rem 0.85rem;
+  color: rgba(255,255,255,0.75);
+  font-size: 0.92rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.15s;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.admin-sidebar-link:hover {
+  color: var(--white);
+  background: rgba(255,255,255,0.08);
+}
+
+.admin-sidebar-link.active {
+  color: var(--white);
+  background: var(--plum);
+  font-weight: 700;
+}
+
+.admin-sidebar-sublink {
+  padding-left: 1.85rem;
+  font-size: 0.85rem;
+  position: relative;
+}
+
+.admin-sidebar-sublink::before {
+  content: '';
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  width: 6px;
+  height: 1px;
+  background: rgba(255,255,255,0.3);
+}
+
+.admin-tree-school {
+  margin-bottom: 0.25rem;
+}
+
+.admin-tree-kits {
+  margin-top: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-sidebar-foot {
+  padding: 1rem 0.75rem 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin-top: 1rem;
+}
+
+.admin-sidebar-tool {
+  color: rgba(255,255,255,0.65);
+}
+
+/* ── Main content area ──────────────────────────────────────── */
+.admin-main {
+  padding: 2rem 2.5rem 3rem;
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .admin-main { padding: 1.5rem 1.25rem 2rem; }
+}
+
+/* ── Breadcrumb ─────────────────────────────────────────────── */
+.admin-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.crumb-link {
+  color: var(--plum);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.crumb-link:hover {
+  color: var(--plum-dark);
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  color: var(--muted);
+}
+
+.crumb-current {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* ── Inline editing for week titles ─────────────────────────── */
+.admin-week-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+}
+
+.editable-title {
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.editable-title:hover {
+  background: rgba(108, 53, 105, 0.1);
+}
+
+.editable-title:hover + .edit-hint,
+.admin-week-head:hover .edit-hint {
+  opacity: 1;
+}
+
+.edit-hint {
+  opacity: 0.3;
+  font-size: 0.85rem;
+  color: var(--plum);
+  transition: opacity 0.15s;
+}
+
+.editable-title.editing {
+  background: transparent;
+  padding: 0;
+}
+
+.inline-edit-input {
+  font-family: var(--font-display);
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--ink);
+  background: var(--white);
+  border: 2px solid var(--plum);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  outline: none;
+  width: 280px;
+  max-width: 100%;
+}

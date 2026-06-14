@@ -14,173 +14,176 @@
   <site-nav></site-nav>
 
   <main style="margin-top: 68px;">
-    <section class="section">
-      <div class="container">
-        <p style="margin-bottom: 1rem;">
-          <a href="dashboard.html" class="back-link">← Back to schools</a>
-        </p>
-
-        <p class="label" id="school-label"></p>
-        <h1 style="font-size: 2.2rem; font-weight: 700;" id="school-name"></h1>
-
-        <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);" />
-
-        <div class="admin-section-header">
-          <h2 class="pillars-heading" style="margin-bottom: 0;">Kits</h2>
-          <button class="btn btn-primary" id="add-kit-btn">+ Add Kit</button>
-        </div>
-
-        <div id="kits-list" class="admin-list" style="margin-top: 1.5rem;"></div>
-        <p id="empty-msg" style="color: var(--muted); display: none;">No kits yet.</p>
-      </div>
-    </section>
+    <admin-layout data-page="school"></admin-layout>
   </main>
-
-  <!-- Kit Modal -->
-  <div class="modal" id="kit-modal">
-    <div class="modal-box">
-      <h2 id="modal-title">Add Kit</h2>
-      <form id="kit-form">
-        <input type="hidden" id="kit-id" />
-        <div class="form-field">
-          <label for="kit-name">Name</label>
-          <input type="text" id="kit-name" required />
-        </div>
-        <div class="form-field">
-          <label for="kit-slug">URL Slug (e.g. "first-grade-readiness")</label>
-          <input type="text" id="kit-slug" required pattern="[a-z0-9-]+" />
-        </div>
-        <div class="form-field">
-          <label for="kit-desc">Description</label>
-          <textarea id="kit-desc" rows="3"></textarea>
-        </div>
-        <div class="form-field">
-          <label for="kit-weeks">Number of weeks (e.g. 10)</label>
-          <input type="number" id="kit-weeks" min="1" max="52" value="10" />
-          <p style="font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem;">
-            When creating a new kit, this auto-generates that many empty weeks (with 2 video slots each).
-          </p>
-        </div>
-        <p id="kit-err" style="color: #c0392b; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-outline-dark" id="cancel-kit-btn">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="save-kit-btn">Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <site-footer></site-footer>
 
   <script src="/js/main.js"></script>
   <script src="/js/supabase.js"></script>
+  <script src="/js/admin-layout.js"></script>
   <script>
-    if (!requireAuth()) { }
     const schoolId = getQueryParam('id')
     let school = null
 
-    async function loadSchool() {
-      const data = await dbSelect('schools', `select=*&id=eq.${schoolId}&limit=1`)
-      school = data[0]
-      if (!school) { document.getElementById('school-name').textContent = 'School not found'; return }
-      document.getElementById('school-label').textContent = 'School'
-      document.getElementById('school-name').textContent = school.name
-      document.title = `${school.name} — Malkah Admin`
-    }
-
-    const modal = document.getElementById('kit-modal')
-    const openModal = (kit = null) => {
-      document.getElementById('modal-title').textContent = kit ? 'Edit Kit' : 'Add Kit'
-      document.getElementById('kit-id').value = kit?.id || ''
-      document.getElementById('kit-name').value = kit?.name || ''
-      document.getElementById('kit-slug').value = kit?.slug || ''
-      document.getElementById('kit-desc').value = kit?.description || ''
-      document.getElementById('kit-weeks').value = '10'
-      document.getElementById('kit-weeks').parentElement.style.display = kit ? 'none' : 'flex'
-      document.getElementById('kit-err').style.display = 'none'
-      modal.classList.add('open')
-    }
-    const closeModal = () => modal.classList.remove('open')
-
-    document.getElementById('add-kit-btn').addEventListener('click', () => openModal())
-    document.getElementById('cancel-kit-btn').addEventListener('click', closeModal)
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
-
-    document.getElementById('kit-form').addEventListener('submit', async (e) => {
-      e.preventDefault()
-      const id = document.getElementById('kit-id').value
-      const payload = {
-        school_id: parseInt(schoolId),
-        name: document.getElementById('kit-name').value,
-        slug: document.getElementById('kit-slug').value,
-        description: document.getElementById('kit-desc').value,
-      }
-      try {
-        if (id) {
-          await dbUpdate('kits', id, payload)
-        } else {
-          const created = await dbInsert('kits', payload)
-          const kitId = created[0].id
-          const numWeeks = parseInt(document.getElementById('kit-weeks').value) || 10
-          // Auto-create weeks + 2 video placeholders per week
-          for (let i = 1; i <= numWeeks; i++) {
-            const w = await dbInsert('weeks', { kit_id: kitId, number: i, title: `Week ${i}` })
-            const weekId = w[0].id
-            await dbInsert('videos', { week_id: weekId, position: 1, title: `Week ${i} Video 1` })
-            await dbInsert('videos', { week_id: weekId, position: 2, title: `Week ${i} Video 2` })
-          }
-        }
-        closeModal()
-        loadKits()
-      } catch (err) {
-        const errEl = document.getElementById('kit-err')
-        errEl.textContent = String(err.message || err)
-        errEl.style.display = 'block'
-      }
+    customElements.whenDefined('admin-layout').then(() => {
+      setTimeout(initSchool, 50)
     })
 
-    async function loadKits() {
-      const list = document.getElementById('kits-list')
-      list.innerHTML = '<p style="color: var(--muted);">Loading...</p>'
-      try {
-        const kits = await getKitsBySchool(schoolId)
-        if (kits.length === 0) {
-          list.innerHTML = ''
-          document.getElementById('empty-msg').style.display = 'block'
-          return
-        }
-        document.getElementById('empty-msg').style.display = 'none'
-        list.innerHTML = ''
-        kits.forEach(kit => {
-          const item = document.createElement('div')
-          item.className = 'admin-card'
-          item.innerHTML = `
-            <div class="admin-card-info">
-              <h3>${kit.name}</h3>
-              <p>${kit.description || ''}</p>
-              <span class="admin-card-slug">/${kit.slug}</span>
-            </div>
-            <div class="admin-card-actions">
-              <a href="kit.html?id=${kit.id}" class="btn btn-primary">Manage Weeks</a>
-              <button class="btn btn-outline-dark edit-btn">Edit</button>
-              <button class="btn-icon delete-btn" title="Delete">×</button>
-            </div>
-          `
-          item.querySelector('.edit-btn').addEventListener('click', () => openModal(kit))
-          item.querySelector('.delete-btn').addEventListener('click', async () => {
-            if (confirm(`Delete "${kit.name}" and ALL its weeks and videos?`)) {
-              await dbDelete('kits', kit.id)
-              loadKits()
-            }
-          })
-          list.appendChild(item)
-        })
-      } catch (err) {
-        list.innerHTML = `<p style="color: #c0392b;">${err.message}</p>`
+    async function initSchool() {
+      const data = await dbSelect('schools', `select=*&id=eq.${schoolId}&limit=1`)
+      school = data[0]
+      if (!school) {
+        document.querySelector('#admin-content').innerHTML = '<p>School not found.</p>'
+        return
       }
-    }
+      document.title = `${school.name} — Malkah Admin`
 
-    loadSchool().then(loadKits)
+      const content = document.querySelector('#admin-content')
+      content.innerHTML = `
+        <div class="admin-section-header">
+          <div>
+            <p class="label">School</p>
+            <h1 style="font-size: 2.2rem; font-weight: 700;">${school.name}</h1>
+            <p style="color: var(--muted); margin-top: 0.5rem;">${school.description || ''}</p>
+          </div>
+          <button class="btn btn-primary" id="add-kit-btn">+ Add Kit</button>
+        </div>
+
+        <div id="kits-list" class="admin-list" style="margin-top: 2rem;"></div>
+        <p id="empty-msg" style="color: var(--muted); display: none;">No kits yet.</p>
+      `
+
+      // Modal HTML
+      const modalHtml = `
+        <div class="modal" id="kit-modal">
+          <div class="modal-box">
+            <h2 id="modal-title">Add Kit</h2>
+            <form id="kit-form">
+              <input type="hidden" id="kit-id" />
+              <div class="form-field">
+                <label for="kit-name">Name</label>
+                <input type="text" id="kit-name" required />
+              </div>
+              <div class="form-field">
+                <label for="kit-slug">URL Slug (e.g. "first-grade-readiness")</label>
+                <input type="text" id="kit-slug" required pattern="[a-z0-9-]+" />
+              </div>
+              <div class="form-field">
+                <label for="kit-desc">Description</label>
+                <textarea id="kit-desc" rows="3"></textarea>
+              </div>
+              <div class="form-field" id="kit-weeks-field">
+                <label for="kit-weeks">Number of weeks</label>
+                <input type="number" id="kit-weeks" min="1" max="52" value="10" />
+                <p style="font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem;">
+                  Auto-creates empty weeks with 2 video slots each.
+                </p>
+              </div>
+              <p id="kit-err" style="color: #c0392b; font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
+              <div class="modal-actions">
+                <button type="button" class="btn btn-outline-dark" id="cancel-kit-btn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `
+      document.body.insertAdjacentHTML('beforeend', modalHtml)
+
+      const modal = document.getElementById('kit-modal')
+      const openModal = (kit = null) => {
+        document.getElementById('modal-title').textContent = kit ? 'Edit Kit' : 'Add Kit'
+        document.getElementById('kit-id').value = kit?.id || ''
+        document.getElementById('kit-name').value = kit?.name || ''
+        document.getElementById('kit-slug').value = kit?.slug || ''
+        document.getElementById('kit-desc').value = kit?.description || ''
+        document.getElementById('kit-weeks').value = '10'
+        document.getElementById('kit-weeks-field').style.display = kit ? 'none' : 'flex'
+        document.getElementById('kit-err').style.display = 'none'
+        modal.classList.add('open')
+      }
+      const closeModal = () => modal.classList.remove('open')
+
+      document.getElementById('add-kit-btn').addEventListener('click', () => openModal())
+      document.getElementById('cancel-kit-btn').addEventListener('click', closeModal)
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal() })
+
+      document.getElementById('kit-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const id = document.getElementById('kit-id').value
+        const payload = {
+          school_id: parseInt(schoolId),
+          name: document.getElementById('kit-name').value,
+          slug: document.getElementById('kit-slug').value,
+          description: document.getElementById('kit-desc').value,
+        }
+        try {
+          if (id) {
+            await dbUpdate('kits', id, payload)
+          } else {
+            const created = await dbInsert('kits', payload)
+            const kitId = created[0].id
+            const numWeeks = parseInt(document.getElementById('kit-weeks').value) || 10
+            for (let i = 1; i <= numWeeks; i++) {
+              const w = await dbInsert('weeks', { kit_id: kitId, number: i, title: `Week ${i}` })
+              const weekId = w[0].id
+              await dbInsert('videos', { week_id: weekId, position: 1, title: `Week ${i} Video 1` })
+              await dbInsert('videos', { week_id: weekId, position: 2, title: `Week ${i} Video 2` })
+            }
+          }
+          closeModal()
+          loadKits()
+        } catch (err) {
+          const errEl = document.getElementById('kit-err')
+          errEl.textContent = String(err.message || err)
+          errEl.style.display = 'block'
+        }
+      })
+
+      async function loadKits() {
+        const list = document.getElementById('kits-list')
+        list.innerHTML = '<p style="color: var(--muted);">Loading...</p>'
+        try {
+          const kits = await getKitsBySchool(schoolId)
+          if (kits.length === 0) {
+            list.innerHTML = ''
+            document.getElementById('empty-msg').style.display = 'block'
+            return
+          }
+          document.getElementById('empty-msg').style.display = 'none'
+          list.innerHTML = ''
+          kits.forEach(kit => {
+            const item = document.createElement('div')
+            item.className = 'admin-card'
+            item.innerHTML = `
+              <div class="admin-card-info">
+                <h3>${kit.name}</h3>
+                <p>${kit.description || ''}</p>
+                <span class="admin-card-slug">/${kit.slug}</span>
+              </div>
+              <div class="admin-card-actions">
+                <a href="kit.html?id=${kit.id}" class="btn btn-primary">Manage Weeks</a>
+                <button class="btn btn-outline-dark edit-btn">Edit</button>
+                <button class="btn-icon delete-btn" title="Delete">×</button>
+              </div>
+            `
+            item.querySelector('.edit-btn').addEventListener('click', () => openModal(kit))
+            item.querySelector('.delete-btn').addEventListener('click', async () => {
+              if (confirm(`Delete "${kit.name}" and ALL its weeks and videos?`)) {
+                await dbDelete('kits', kit.id)
+                loadKits()
+              }
+            })
+            list.appendChild(item)
+          })
+        } catch (err) {
+          list.innerHTML = `<p style="color: #c0392b;">${err.message}</p>`
+        }
+      }
+
+      loadKits()
+    }
   </script>
 </body>
 </html>
