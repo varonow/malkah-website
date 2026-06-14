@@ -1,6 +1,6 @@
 /* ============================================================
    MALKAH — supabase.js
-   Database interactions + admin auth
+   Database interactions + admin auth with auto-refresh
    ============================================================ */
 
 const SUPABASE_URL      = 'https://rdkjxzjplguvyrjevqyn.supabase.co'
@@ -14,6 +14,45 @@ function authHeaders() {
     'apikey':        SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
   }
+}
+
+// ── Token refresh ─────────────────────────────────────────────
+async function refreshSession() {
+  const refreshToken = localStorage.getItem('sb-refresh-token')
+  if (!refreshToken) return false
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    localStorage.setItem('sb-access-token', data.access_token)
+    localStorage.setItem('sb-refresh-token', data.refresh_token)
+    if (data.user) localStorage.setItem('sb-user', JSON.stringify(data.user))
+    return true
+  } catch { return false }
+}
+
+// ── Authenticated fetch with auto-refresh on 401 ─────────────
+async function authFetch(url, options = {}) {
+  options.headers = { ...(options.headers || {}), ...authHeaders() }
+  let res = await fetch(url, options)
+  if (res.status === 401 && localStorage.getItem('sb-refresh-token')) {
+    const refreshed = await refreshSession()
+    if (refreshed) {
+      options.headers = { ...(options.headers || {}), ...authHeaders() }
+      res = await fetch(url, options)
+    } else {
+      // Refresh failed — log out and redirect
+      logout()
+      if (window.location.pathname.startsWith('/admin/')) {
+        window.location.href = '/admin/login.html'
+      }
+    }
+  }
+  return res
 }
 
 // ── Contact form submission ───────────────────────────────────
@@ -75,18 +114,18 @@ function requireAuth(redirectTo = 'login.html') {
   return true
 }
 
-// ── Generic DB helpers ────────────────────────────────────────
+// ── Generic DB helpers (use authFetch for auto-refresh) ───────
 async function dbSelect(table, query = '') {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? '?' + query : ''}`
-  const res = await fetch(url, { headers: authHeaders() })
+  const res = await authFetch(url)
   if (!res.ok) throw new Error(`Select ${table} failed`)
   return res.json()
 }
 
 async function dbInsert(table, data) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: { ...authHeaders(), 'Prefer': 'return=representation' },
+    headers: { 'Prefer': 'return=representation' },
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`Insert ${table} failed: ${await res.text()}`)
@@ -94,9 +133,9 @@ async function dbInsert(table, data) {
 }
 
 async function dbUpdate(table, id, data) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+  const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'PATCH',
-    headers: { ...authHeaders(), 'Prefer': 'return=representation' },
+    headers: { 'Prefer': 'return=representation' },
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`Update ${table} failed: ${await res.text()}`)
@@ -104,9 +143,8 @@ async function dbUpdate(table, id, data) {
 }
 
 async function dbDelete(table, id) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+  const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'DELETE',
-    headers: authHeaders(),
   })
   if (!res.ok) throw new Error(`Delete ${table} failed`)
   return true
