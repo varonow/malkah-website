@@ -1175,3 +1175,16 @@ admin-layout { display: block; }
   width: 280px;
   max-width: 100%;
 }
+.nav-admin-link {
+  background: var(--plum);
+  color: var(--white) !important;
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.nav-admin-link:hover {
+  background: var(--plum-dark);
+  color: var(--white) !important;
+}

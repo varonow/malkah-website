@@ -13,6 +13,7 @@ class SiteNav extends HTMLElement {
               <li><a href="/index.html#mission">About</a></li>
               <li><a href="/products.html">Products</a></li>
               <li><a href="/contact.html">Contact</a></li>
+              <li id="admin-nav-item" style="display: none;"><a href="/admin/dashboard.html" class="nav-admin-link">Admin</a></li>
             </ul>
           </nav>
           <button class="nav-hamburger" id="hamburger" aria-label="Open menu">
@@ -24,6 +25,7 @@ class SiteNav extends HTMLElement {
         <a href="/index.html#mission">About</a>
         <a href="/products.html">Products</a>
         <a href="/contact.html">Contact</a>
+        <a href="/admin/dashboard.html" id="admin-nav-mobile" style="display: none;">Admin</a>
       </nav>
     `
 
@@ -39,6 +41,14 @@ class SiteNav extends HTMLElement {
     mobileNav.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', () => mobileNav.classList.remove('open'))
     })
+
+    // Show admin link if logged in
+    if (typeof isLoggedIn === 'function' && isLoggedIn()) {
+      const adminItem = this.querySelector('#admin-nav-item')
+      const adminMobile = this.querySelector('#admin-nav-mobile')
+      if (adminItem) adminItem.style.display = ''
+      if (adminMobile) adminMobile.style.display = ''
+    }
   }
 }
 
