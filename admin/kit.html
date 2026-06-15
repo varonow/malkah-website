@@ -63,6 +63,8 @@
             <h2 id="modal-title">Edit Video</h2>
             <form id="video-form">
               <input type="hidden" id="video-id" />
+              <input type="hidden" id="video-week-id" />
+              <input type="hidden" id="video-mode" />
               <div class="form-field">
                 <label for="video-title">Video Title</label>
                 <input type="text" id="video-title" required />
@@ -87,12 +89,25 @@
       document.body.insertAdjacentHTML('beforeend', modalHtml)
 
       const modal = document.getElementById('video-modal')
-      const openVideoModal = (video) => {
+      const openEditVideoModal = (video) => {
+        document.getElementById('video-mode').value = 'edit'
         document.getElementById('video-id').value = video.id
+        document.getElementById('video-week-id').value = ''
         document.getElementById('modal-title').textContent = `Edit: ${video.title}`
         document.getElementById('video-title').value = video.title
         document.getElementById('video-vimeo').value = video.vimeo_id || ''
         document.getElementById('video-desc').value = video.description || ''
+        document.getElementById('video-err').style.display = 'none'
+        modal.classList.add('open')
+      }
+      const openAddVideoModal = (weekId, nextPosition) => {
+        document.getElementById('video-mode').value = 'add'
+        document.getElementById('video-id').value = ''
+        document.getElementById('video-week-id').value = weekId
+        document.getElementById('modal-title').textContent = `Add Video ${nextPosition}`
+        document.getElementById('video-title').value = `Video ${nextPosition}`
+        document.getElementById('video-vimeo').value = ''
+        document.getElementById('video-desc').value = ''
         document.getElementById('video-err').style.display = 'none'
         modal.classList.add('open')
       }
@@ -103,14 +118,23 @@
 
       document.getElementById('video-form').addEventListener('submit', async (e) => {
         e.preventDefault()
-        const id = document.getElementById('video-id').value
+        const mode = document.getElementById('video-mode').value
         const payload = {
           title: document.getElementById('video-title').value,
           vimeo_id: document.getElementById('video-vimeo').value || null,
           description: document.getElementById('video-desc').value,
         }
         try {
-          await dbUpdate('videos', id, payload)
+          if (mode === 'edit') {
+            const id = document.getElementById('video-id').value
+            await dbUpdate('videos', id, payload)
+          } else {
+            const weekId = parseInt(document.getElementById('video-week-id').value)
+            // Find next available position
+            const existing = await getVideosByWeek(weekId)
+            const nextPos = existing.length === 0 ? 1 : Math.max(...existing.map(v => v.position)) + 1
+            await dbInsert('videos', { ...payload, week_id: weekId, position: nextPos })
+          }
           closeModal()
           loadWeeks()
         } catch (err) {
@@ -174,9 +198,15 @@
                     ${v.vimeo_id ? `<span class="video-tag">Vimeo: ${v.vimeo_id}</span>` : '<span class="video-tag pending">No video yet</span>'}
                     ${v.description ? `<p>${v.description}</p>` : ''}
                   </div>
-                  <button class="btn btn-outline-dark edit-video-btn" data-id="${v.id}">Edit</button>
+                  <div class="admin-video-actions">
+                    <button class="btn btn-outline-dark edit-video-btn" data-id="${v.id}">Edit</button>
+                    <button class="btn-icon delete-video-btn" data-id="${v.id}" data-title="${v.title.replace(/"/g, '&quot;')}" title="Delete video">×</button>
+                  </div>
                 </div>
               `).join('')}
+              <div class="admin-add-video-row">
+                <button class="btn btn-teal add-video-btn" data-week-id="${week.id}" data-next-pos="${vids.length + 1}">+ Add Video</button>
+              </div>
             </div>
           `
 
@@ -184,6 +214,7 @@
           const titleEl = wDiv.querySelector('.editable-title')
           titleEl.addEventListener('click', () => makeInlineEditable(titleEl, week))
 
+          // Delete week
           wDiv.querySelector('.delete-week-btn').addEventListener('click', async () => {
             if (confirm(`Delete Week ${week.number} (${week.title}) and its videos?`)) {
               await dbDelete('weeks', week.id)
@@ -191,12 +222,30 @@
             }
           })
 
+          // Edit video
           wDiv.querySelectorAll('.edit-video-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               const vid = vids.find(v => v.id == btn.dataset.id)
-              openVideoModal(vid)
+              openEditVideoModal(vid)
             })
           })
+
+          // Delete video
+          wDiv.querySelectorAll('.delete-video-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              if (confirm(`Delete video "${btn.dataset.title}"?`)) {
+                await dbDelete('videos', btn.dataset.id)
+                loadWeeks()
+              }
+            })
+          })
+
+          // Add video
+          wDiv.querySelector('.add-video-btn').addEventListener('click', () => {
+            const btn = wDiv.querySelector('.add-video-btn')
+            openAddVideoModal(parseInt(btn.dataset.weekId), parseInt(btn.dataset.nextPos))
+          })
+
           list.appendChild(wDiv)
         })
       }
