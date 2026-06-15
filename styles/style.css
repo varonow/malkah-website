@@ -1235,3 +1235,24 @@ admin-layout { display: block; }
 .admin-video-row.drag-over {
   border-top: 2px solid var(--plum);
 }
+
+.admin-week-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.view-week-link {
+  font-size: 0.85rem;
+  color: var(--plum);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.view-week-link:hover {
+  background: var(--plum);
+  color: var(--white);
+}

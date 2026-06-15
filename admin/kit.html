@@ -25,6 +25,7 @@
   <script>
     const kitId = getQueryParam('id')
     let kit = null
+    let school = null
 
     customElements.whenDefined('admin-layout').then(() => {
       setTimeout(initKit, 50)
@@ -38,8 +39,10 @@
         return
       }
       const sData = await dbSelect('schools', `select=*&id=eq.${kit.school_id}&limit=1`)
-      const school = sData[0]
+      school = sData[0]
       document.title = `${kit.name} — Malkah Admin`
+
+      const studentKitUrl = `/students/kit.html?school=${school.slug}&kit=${kit.slug}`
 
       const content = document.querySelector('#admin-content')
       content.innerHTML = `
@@ -52,7 +55,10 @@
               💡 Drag videos by the handle to reorder them within a week.
             </p>
           </div>
-          <button class="btn btn-primary" id="add-week-btn">+ Add Week</button>
+          <div class="admin-header-actions">
+            <a href="${studentKitUrl}" target="_blank" class="btn btn-teal">👁 View as Student</a>
+            <button class="btn btn-primary" id="add-week-btn">+ Add Week</button>
+          </div>
         </div>
 
         <div id="weeks-list" style="margin-top: 2rem;"></div>
@@ -103,7 +109,7 @@
         document.getElementById('video-err').style.display = 'none'
         modal.classList.add('open')
       }
-      const openAddVideoModal = (weekId, nextPosition) => {
+      const openAddVideoModal = (weekId) => {
         document.getElementById('video-mode').value = 'add'
         document.getElementById('video-id').value = ''
         document.getElementById('video-week-id').value = weekId
@@ -164,12 +170,9 @@
 
       // ── Reorder videos within a week ─────────────────────
       async function reorderVideos(weekId, newOrder) {
-        // newOrder is an array of video IDs in the new order
-        // First, set all videos to negative positions to avoid uniqueness conflict
         for (let i = 0; i < newOrder.length; i++) {
           await dbUpdate('videos', newOrder[i], { position: -(i + 1) })
         }
-        // Then set them to their final positions
         for (let i = 0; i < newOrder.length; i++) {
           await dbUpdate('videos', newOrder[i], { position: i + 1 })
         }
@@ -194,6 +197,7 @@
 
         weeks.forEach(week => {
           const vids = videosByWeek[week.id] || []
+          const studentWeekUrl = `/students/week.html?school=${school.slug}&kit=${kit.slug}&week=${week.number}`
           const wDiv = document.createElement('div')
           wDiv.className = 'admin-week-block'
           wDiv.innerHTML = `
@@ -203,7 +207,10 @@
                 <span class="admin-week-title editable-title" data-week-id="${week.id}" title="Click to edit">${week.title}</span>
                 <span class="edit-hint">✎</span>
               </div>
-              <button class="btn-icon delete-week-btn" data-id="${week.id}" title="Delete week">×</button>
+              <div class="admin-week-actions">
+                <a href="${studentWeekUrl}" target="_blank" class="view-week-link" title="View this week as a student">👁 View</a>
+                <button class="btn-icon delete-week-btn" data-id="${week.id}" title="Delete week">×</button>
+              </div>
             </div>
             <div class="admin-videos" data-week-id="${week.id}">
               ${vids.map(v => `
@@ -226,11 +233,9 @@
             </div>
           `
 
-          // Inline edit week title
           const titleEl = wDiv.querySelector('.editable-title')
           titleEl.addEventListener('click', () => makeInlineEditable(titleEl, week))
 
-          // Delete week
           wDiv.querySelector('.delete-week-btn').addEventListener('click', async () => {
             if (confirm(`Delete Week ${week.number} (${week.title}) and its videos?`)) {
               await dbDelete('weeks', week.id)
@@ -238,7 +243,6 @@
             }
           })
 
-          // Edit video
           wDiv.querySelectorAll('.edit-video-btn').forEach(btn => {
             btn.addEventListener('click', () => {
               const vid = vids.find(v => v.id == btn.dataset.id)
@@ -246,7 +250,6 @@
             })
           })
 
-          // Delete video
           wDiv.querySelectorAll('.delete-video-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
               if (confirm(`Delete video "${btn.dataset.title}"?`)) {
@@ -256,13 +259,12 @@
             })
           })
 
-          // Add video
           wDiv.querySelector('.add-video-btn').addEventListener('click', () => {
             const btn = wDiv.querySelector('.add-video-btn')
-            openAddVideoModal(parseInt(btn.dataset.weekId), 0)
+            openAddVideoModal(parseInt(btn.dataset.weekId))
           })
 
-          // ── Drag & drop reordering ───────────────────────
+          // Drag & drop reordering
           const videosContainer = wDiv.querySelector('.admin-videos')
           let draggedItem = null
 
@@ -278,8 +280,6 @@
               row.classList.remove('dragging')
               videosContainer.querySelectorAll('.admin-video-row').forEach(r => r.classList.remove('drag-over'))
               draggedItem = null
-
-              // Save the new order
               const newOrder = [...videosContainer.querySelectorAll('.admin-video-row')]
                 .map(r => parseInt(r.dataset.videoId))
               try {
