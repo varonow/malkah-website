@@ -48,6 +48,9 @@
             <p class="label">${school?.name || ''}</p>
             <h1 style="font-size: 2.2rem; font-weight: 700;">${kit.name}</h1>
             <p style="color: var(--muted); margin-top: 0.5rem;">${kit.description || ''}</p>
+            <p style="color: var(--muted); margin-top: 0.5rem; font-size: 0.85rem;">
+              💡 Drag videos by the handle to reorder them within a week.
+            </p>
           </div>
           <button class="btn btn-primary" id="add-week-btn">+ Add Week</button>
         </div>
@@ -104,8 +107,8 @@
         document.getElementById('video-mode').value = 'add'
         document.getElementById('video-id').value = ''
         document.getElementById('video-week-id').value = weekId
-        document.getElementById('modal-title').textContent = `Add Video ${nextPosition}`
-        document.getElementById('video-title').value = `Video ${nextPosition}`
+        document.getElementById('modal-title').textContent = `Add Video`
+        document.getElementById('video-title').value = ''
         document.getElementById('video-vimeo').value = ''
         document.getElementById('video-desc').value = ''
         document.getElementById('video-err').style.display = 'none'
@@ -130,7 +133,6 @@
             await dbUpdate('videos', id, payload)
           } else {
             const weekId = parseInt(document.getElementById('video-week-id').value)
-            // Find next available position
             const existing = await getVideosByWeek(weekId)
             const nextPos = existing.length === 0 ? 1 : Math.max(...existing.map(v => v.position)) + 1
             await dbInsert('videos', { ...payload, week_id: weekId, position: nextPos })
@@ -159,6 +161,19 @@
           alert('Error: ' + err.message)
         }
       })
+
+      // ── Reorder videos within a week ─────────────────────
+      async function reorderVideos(weekId, newOrder) {
+        // newOrder is an array of video IDs in the new order
+        // First, set all videos to negative positions to avoid uniqueness conflict
+        for (let i = 0; i < newOrder.length; i++) {
+          await dbUpdate('videos', newOrder[i], { position: -(i + 1) })
+        }
+        // Then set them to their final positions
+        for (let i = 0; i < newOrder.length; i++) {
+          await dbUpdate('videos', newOrder[i], { position: i + 1 })
+        }
+      }
 
       async function loadWeeks() {
         const list = document.getElementById('weeks-list')
@@ -190,9 +205,10 @@
               </div>
               <button class="btn-icon delete-week-btn" data-id="${week.id}" title="Delete week">×</button>
             </div>
-            <div class="admin-videos">
+            <div class="admin-videos" data-week-id="${week.id}">
               ${vids.map(v => `
-                <div class="admin-video-row">
+                <div class="admin-video-row" draggable="true" data-video-id="${v.id}">
+                  <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
                   <div class="admin-video-info">
                     <strong>${v.title}</strong>
                     ${v.vimeo_id ? `<span class="video-tag">Vimeo: ${v.vimeo_id}</span>` : '<span class="video-tag pending">No video yet</span>'}
@@ -205,7 +221,7 @@
                 </div>
               `).join('')}
               <div class="admin-add-video-row">
-                <button class="btn btn-teal add-video-btn" data-week-id="${week.id}" data-next-pos="${vids.length + 1}">+ Add Video</button>
+                <button class="btn btn-teal add-video-btn" data-week-id="${week.id}">+ Add Video</button>
               </div>
             </div>
           `
@@ -243,7 +259,62 @@
           // Add video
           wDiv.querySelector('.add-video-btn').addEventListener('click', () => {
             const btn = wDiv.querySelector('.add-video-btn')
-            openAddVideoModal(parseInt(btn.dataset.weekId), parseInt(btn.dataset.nextPos))
+            openAddVideoModal(parseInt(btn.dataset.weekId), 0)
+          })
+
+          // ── Drag & drop reordering ───────────────────────
+          const videosContainer = wDiv.querySelector('.admin-videos')
+          let draggedItem = null
+
+          videosContainer.querySelectorAll('.admin-video-row').forEach(row => {
+            row.addEventListener('dragstart', (e) => {
+              draggedItem = row
+              row.classList.add('dragging')
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('text/html', row.outerHTML)
+            })
+
+            row.addEventListener('dragend', async () => {
+              row.classList.remove('dragging')
+              videosContainer.querySelectorAll('.admin-video-row').forEach(r => r.classList.remove('drag-over'))
+              draggedItem = null
+
+              // Save the new order
+              const newOrder = [...videosContainer.querySelectorAll('.admin-video-row')]
+                .map(r => parseInt(r.dataset.videoId))
+              try {
+                await reorderVideos(week.id, newOrder)
+              } catch (err) {
+                alert('Error saving order: ' + err.message)
+                loadWeeks()
+              }
+            })
+
+            row.addEventListener('dragover', (e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              if (draggedItem && draggedItem !== row) {
+                row.classList.add('drag-over')
+              }
+            })
+
+            row.addEventListener('dragleave', () => {
+              row.classList.remove('drag-over')
+            })
+
+            row.addEventListener('drop', (e) => {
+              e.preventDefault()
+              row.classList.remove('drag-over')
+              if (draggedItem && draggedItem !== row) {
+                const rect = row.getBoundingClientRect()
+                const midpoint = rect.top + rect.height / 2
+                if (e.clientY < midpoint) {
+                  row.parentNode.insertBefore(draggedItem, row)
+                } else {
+                  row.parentNode.insertBefore(draggedItem, row.nextSibling)
+                }
+              }
+            })
           })
 
           list.appendChild(wDiv)

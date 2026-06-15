@@ -1205,3 +1205,33 @@ admin-layout { display: block; }
   font-size: 0.85rem;
   padding: 0.5rem 1.25rem;
 }
+
+/* ── Drag handle ────────────────────────────────────────────── */
+.admin-video-row {
+  position: relative;
+  cursor: default;
+}
+
+.drag-handle {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 1.2rem;
+  padding: 0 0.5rem;
+  cursor: grab;
+  user-select: none;
+  letter-spacing: -2px;
+  margin-right: 0.5rem;
+  transition: color 0.15s;
+}
+
+.drag-handle:hover { color: var(--plum); }
+.drag-handle:active { cursor: grabbing; }
+
+.admin-video-row.dragging {
+  opacity: 0.4;
+  background: var(--plum-light);
+}
+
+.admin-video-row.drag-over {
+  border-top: 2px solid var(--plum);
+}
