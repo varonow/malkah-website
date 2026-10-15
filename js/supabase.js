@@ -71,14 +71,16 @@ async function submitContact(data) {
 }
 
 // ── Notify me email ───────────────────────────────────────────
-async function saveNotifyEmail(email) {
+// Routes through Edge Function for server-side bot/honeypot validation.
+async function saveNotifyEmail(email, honeypot = '') {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/notify_emails`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-notify`, {
       method: 'POST',
-      headers: { ...authHeaders(), 'Prefer': 'return=minimal' },
-      body: JSON.stringify({ email }),
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, _hp: honeypot }),
     })
-    return res.ok
+    const json = await res.json()
+    return json.ok === true
   } catch (err) { console.error('Notify email:', err); return false }
 }
 

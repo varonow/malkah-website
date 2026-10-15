@@ -31,6 +31,9 @@
         <!-- Email notify form -->
         <form class="notify-form fade-up delay-4" id="notify-form">
           <input type="email" id="notify-email" placeholder="your@email.com" required />
+          <!-- Honeypot — invisible to humans, bots fill it in -->
+          <input type="text" id="notify-website" name="website" tabindex="-1" autocomplete="off"
+            style="opacity:0;position:absolute;top:0;left:0;height:0;width:0;z-index:-1;" />
           <button type="submit" class="btn btn-teal">Notify Me</button>
         </form>
         <p id="notify-success" style="color: var(--teal-dark); font-weight: 600; margin-top: 1rem; display: none;">
@@ -109,7 +112,8 @@
     document.getElementById('notify-form').addEventListener('submit', async (e) => {
       e.preventDefault()
       const email = document.getElementById('notify-email').value
-      await saveNotifyEmail(email)
+      const hp    = document.getElementById('notify-website').value
+      await saveNotifyEmail(email, hp)
       document.getElementById('notify-form').style.display = 'none'
       document.getElementById('notify-success').style.display = 'block'
     })
