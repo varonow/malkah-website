@@ -56,14 +56,17 @@ async function authFetch(url, options = {}) {
 }
 
 // ── Contact form submission ───────────────────────────────────
+// Routes through Edge Function for server-side bot/honeypot validation.
+// Direct REST API inserts are blocked via RLS.
 async function submitContact(data) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/contact_submissions`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-contact`, {
       method: 'POST',
-      headers: { ...authHeaders(), 'Prefer': 'return=minimal' },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify(data),
     })
-    return res.ok
+    const json = await res.json()
+    return json.ok === true
   } catch (err) { console.error('Contact submit:', err); return false }
 }
 

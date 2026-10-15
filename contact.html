@@ -151,6 +151,7 @@
         org:     document.getElementById('org').value,
         role:    document.getElementById('role').value,
         message: document.getElementById('message').value,
+        _hp:     document.getElementById('website').value,  // server-side honeypot
       }
 
       const ok = await submitContact(data)
