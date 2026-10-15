@@ -106,6 +106,10 @@
                 <textarea id="message" placeholder="Tell us about your school, students, or how we can help..." required></textarea>
               </div>
 
+              <!-- Honeypot — invisible to humans, bots fill it in -->
+              <input type="text" id="website" name="website" tabindex="-1" autocomplete="off"
+                style="opacity:0;position:absolute;top:0;left:0;height:0;width:0;z-index:-1;" />
+
               <p id="form-error" style="color: #c0392b; font-size: 0.85rem; margin-bottom: 1rem; display: none;">
                 Something went wrong. Please try again.
               </p>
@@ -129,6 +133,14 @@
   <script>    
     document.getElementById('contact-form').addEventListener('submit', async (e) => {
       e.preventDefault()
+
+      // Honeypot check — bots fill this hidden field; humans never see it
+      if (document.getElementById('website').value) {
+        document.getElementById('contact-form').style.display = 'none'
+        document.getElementById('form-success').style.display = 'block'
+        return
+      }
+
       const btn = document.getElementById('submit-btn')
       btn.textContent = 'Sending...'
       btn.disabled = true
